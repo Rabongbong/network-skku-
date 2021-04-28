@@ -1,1 +1,4 @@
-
+0.000 pkt: 0 | Hello
+0.001 ACK: 1 | Like this
+File transfer is finished.
+Throughput : 0.00 pkts/sec

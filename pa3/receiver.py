@@ -17,6 +17,11 @@ def fileReceiver():
     print(message.decode())
     # write_file = open(dstFilename, 'wb')
     # write_file.write(message.decode())
+    logProc.startLogging("testRecvLogFile.txt")
+    logProc.writePkt(0, message.decode())
+    logProc.writeAck(1, "Like this")
+    logProc.writeEnd(throughput)
+
     newMsg = 'hello'
     receiverSocket.sendto(newMsg.encode(), senderAddress)
     # while True:
@@ -30,10 +35,6 @@ def fileReceiver():
     #     receiverSocket.sendto(newMsg.encode(), serverAddress)
     #     break
     #Write your Code here
-    logProc.startLogging("testRecvLogFile.txt")
-    logProc.writePkt(0, "Use your log file Processor")
-    logProc.writeAck(1, "Like this")
-    logProc.writeEnd(throughput)
     #########################
 
 

@@ -2,10 +2,9 @@ import sys
 import socket
 from logHandler import logHandler
 
-def fileSender():
-    
+def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
+
     logProc = logHandler()
-    
     throughput = 0.0
     avgRTT = 10.0
     ##########################
@@ -22,14 +21,13 @@ def fileSender():
     senderSocket.sendto(sendData.encode(), (recvAddr, serverPort))
     
     newMsg, recvAddr= senderSocket.recvfrom(1024)
-    print(newMsg.decode())
     #senderSocket.close()
     #Write your Code here
-    # logProc.startLogging("testSendLogFile.txt")
+    logProc.startLogging("testSendLogFile.txt")
     
-    # logProc.writePkt(0, "Use your log file Processor")
-    # logProc.writeAck(1, "Like this")
-    # logProc.writeEnd(throughput, avgRTT)
+    logProc.writePkt(0, newMsg.decode())
+    logProc.writeAck(1, "Like this")
+    logProc.writeEnd(throughput, avgRTT)
     ##########################
 
 
@@ -39,4 +37,4 @@ if __name__=='__main__':
     srcFilename = sys.argv[3]   #source file name
     dstFilename = sys.argv[4]   #result file name
 
-    fileSender()
+    fileSender(recvAddr, windowSize, srcFilename, dstFilename)
