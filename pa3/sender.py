@@ -8,19 +8,25 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
     throughput = 0.0
     avgRTT = 10.0
     ##########################
-
+    i=0
     serverPort = 10080  #port
     senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # resHeader=''
-    # sendfile = open(srcFilename, 'rb')
-    # sendData = sendfile.read(1400)
-    # sendfile.close()
-    # resHeader += dstFilename
-    # print(1)
-    sendData = "Hello"
-    senderSocket.sendto(sendData.encode(), (recvAddr, serverPort))
-    
-    newMsg, recvAddr= senderSocket.recvfrom(1024)
+
+    resHeader=''
+    resHeader += dstFilename
+    resHeader += str(i)
+    sendfile = open(srcFilename, 'rb')
+    fileData = sendfile.read(1400-len(resHeader))
+    sendfile.close()
+    sendData = resHeader.encode()
+    sendData += fileData
+    senderSocket.sendto(sendData, (recvAddr, serverPort))
+    windowSize = windowSize-1
+
+
+
+    newMsg, recvAddr= senderSocket.recvfrom(1400)
+    # print(newMsg.decode())
     #senderSocket.close()
     #Write your Code here
     logProc.startLogging("testSendLogFile.txt")
