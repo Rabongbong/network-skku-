@@ -16,7 +16,9 @@ def fileReceiver():
 
     #########################
     serverPort = 10080
-    i=0
+    ACK=0
+    receiveACK={}
+
     receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     receiverSocket.bind(('', serverPort))
     message, senderAddress = receiverSocket.recvfrom(1400)
