@@ -22,9 +22,9 @@ def socket_programming(connectSocket):
     filename = msg.split()[1].split('/')[1]
     httpResHeader=''
 
-    if(os.path.isfile(filename)):
+    if os.path.isfile(filename):
       filetype = filename.split('.')[1]
-      if(filetype=='html'):
+      if filetype=='html':
         file = open(filename, 'rb')
         sendData = file.read()
         file.close()
