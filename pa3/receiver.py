@@ -1,40 +1,60 @@
 import sys
 import socket
 from logHandler import logHandler
-
+import threading
 
 def findNumber(receivePacket):
-    for i in range(0, 100):
-        if receivePacket[i] == 48:
-            return i
+  for i in range(0, 100):
+    if receivePacket[i] == 48:
+      return i
+
+
+def sendACK(receiverSocket):
+  global ACK
+	global receiveACK
+  receiverSocket.sendto(ACK.encode(), senderAddress)
+  lock.acquire()
+  logProc.writeAck(ACK, "sent")
+  lock.release()
 
 
 def fileReceiver():
-    # print('receiver program starts...')
-    logProc = logHandler()
-    throughput = 0.0
+  # print('receiver program starts...')
+  logProc = logHandler()
+  throughput = 0.0
 
-    #########################
-    serverPort = 10080
-    ACK=0
-    receiveACK={}
+  #########################
+  serverPort = 10080
+  receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+  receiverSocket.bind(('', serverPort))
 
-    receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    receiverSocket.bind(('', serverPort))
-    message, senderAddress = receiverSocket.recvfrom(1400)
-    index = findNumber(message)
-    # print(index)
-    print(message[:index].decode())
+  ACK=0                		#ACK
+  receiveACK={}           #receiveACK
+	filename=''
+
+  t = threading.Thread(target=sendACK, args=(receiverSocket))
+
+  logProc.startLogging("testRecvLogFile.txt")
+
+  while True:
+    if ACK==0:
+      message, senderAddress = receiverSocket.recvfrom(1400)
+      index = findNumber(message)
+      filename = message[:index].decode()
+      print(filename)
+      writeFile = open(filename, 'wb')
+      writeFile.write(message[index:])
+      lock.acquire()
+      logProc.writePkt(message[index].decode(), "received")
+      lock.release()
+		else:
+  		message, senderAddress = receiverSocket.recvfrom(1400)
+			writeFile.write()
     
-    # write_file = open(dstFilename, 'wb')
-    # write_file.write(message.decode())
-    logProc.startLogging("testRecvLogFile.txt")
-    logProc.writePkt(0, message.decode())
-    logProc.writeAck(1, "Like this")
-    logProc.writeEnd(throughput)
+		
+		
+		# logProc.writeEnd(throughput)
     # print(message.decode())
-    newMsg = message
-    receiverSocket.sendto(newMsg.encode(), senderAddress)
     # while True:
     #     print(1)
     #     message, senderAddress = receiverSocket.recvfrom(2048)
@@ -50,4 +70,5 @@ def fileReceiver():
 
 
 if __name__=='__main__':
+    lock = threading.Lock()
     fileReceiver()
