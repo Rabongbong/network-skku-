@@ -1,5 +1,0 @@
-0.000 pkt: 0 | hello
-0.003 ACK: 1 | Like this
-File transfer is finished.
-Throughput : 0.00 pkts/sec
-Average RTT : 10.0 ms

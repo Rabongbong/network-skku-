@@ -2,15 +2,22 @@ import sys
 import socket
 from logHandler import logHandler
 import threading
-
+import pdb
 
 def receiveACK(senderSocket):
   global windowSize
   global checkAck
+  global sendBuffer
+  pdb.set_trace()
   newMsg, recvAddr= senderSocket.recvfrom(1400)
-  
+  ACK =  newMsg.decode()
   lock.acquire()
-  logProc.writeAck(newMsg.decode(), 'received')
+  logProc.writeAck(ACK, 'received')
+  lock.release()
+  for i in range(0, ACK):
+    del sendBuffer[i]
+  lock.acquire()
+  windowSize+=1
   lock.release()
   
 
@@ -34,14 +41,12 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
   # ACK 처리하는 소켓
   t = threading.Thread(target=receiveACK, args=(senderSocket))
   t.start()
-
+  logProc.startLogging("testSendLogFile.txt")
 
   while True:
     sendfile = open(srcFilename, 'rb')
-
     while windowSize !=0:
       resHeader=''
-      logProc.startLogging("testSendLogFile.txt")
 
       if serialNumber == 0:
         resHeader += dstFilename

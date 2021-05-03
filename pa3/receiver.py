@@ -47,24 +47,17 @@ def fileReceiver():
       lock.acquire()
       logProc.writePkt(message[index].decode(), "received")
       lock.release()
+			ACK+=1
 		else:
   		message, senderAddress = receiverSocket.recvfrom(1400)
-			writeFile.write()
+			writeFile.write(message[1:])
+			lock.acquire()
+      logProc.writePkt(message[0].decode(), "received")
+      lock.release()
+			ACK+=1
     
-		
-		
 		# logProc.writeEnd(throughput)
-    # print(message.decode())
-    # while True:
-    #     print(1)
-    #     message, senderAddress = receiverSocket.recvfrom(2048)
-    #     print(2)
-    #     print(message)
-    #     receivefile = open(dstFilename, 'wb')
-    #     receivefile.write(message)
-    #     newMsg = 0
-    #     receiverSocket.sendto(newMsg.encode(), serverAddress)
-    #     break
+  
     #Write your Code here
     #########################
 
