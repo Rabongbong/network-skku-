@@ -3,18 +3,6 @@ import socket
 from logHandler import logHandler
 import time
 
-def findNumber(receivePacket):
-  for i in range(0, 100):
-    if receivePacket[i] == 48:
-      return i
-
-
-def sendACK(receiverSocket):
-  global ACK
-	global receiveACK
-  receiverSocket.sendto(ACK.encode(), senderAddress)
-
-  logProc.writeAck(ACK, "sent")
 
 #(header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
 def parsePacket(packet):
@@ -38,7 +26,7 @@ def fileReceiver():
 
   start_time = time.time()
   ACK=0                		#ACK
-  receiveACK={}           #receiveACK
+  receivePacket={}           #receive packet
   dstFilename=""          # destination filename
 
   logProc.startLogging("testRecvLogFile.txt")
@@ -49,32 +37,39 @@ def fileReceiver():
 
     if not dstFilename:
       dstFilename = filename
+      writefile = open(dstFilename, 'wb')
+
+    logProc.writePkt(serialNumber, "received")
+
+    if serialNumber == ACK:
+      writefile.write(body)
+      ACK+=1
+
+      while True:
+
+        if ACK not in receivePacket.keys():
+          break
+        ACK +=1
+        writefile.write(receivePacket[ACK])
+        del receivePacket[ACK]
+
+    elif serialNumber > ACK:
+      receivePacket[serialNumber]=body
+
+    receiverSocket.sendto(str(ACK).encode(), senderAddress)
+    logProc.writeAck(serialNumber, "sent")
 
 
-    if flag == '1':
-
-
-    if ACK==0:
-      message, senderAddress = receiverSocket.recvfrom(1400)
-      index = findNumber(message)
-      filename = message[:index].decode()
-      print(filename)
-      writeFile = open(filename, 'wb')
-      writeFile.write(message[index:])
-      lock.acquire()
-      logProc.writePkt(message[index].decode(), "received")
-      lock.release()
-			ACK+=1
-		else:
-  		message, senderAddress = receiverSocket.recvfrom(1400)
-			writeFile.write(message[1:])
-			lock.acquire()
-      logProc.writePkt(message[0].decode(), "received")
-      lock.release()
-			ACK+=1
-    
-		# logProc.writeEnd(throughput)
+    # received last packet
+    if flag == '1': 
+      throughput = (ACK)/(time.time()-start_time)
+      logProc.writeEnd(throughput)
+      break
   
+  receiverSocket.close()
+  writefile.close()
+
+
     #Write your Code here
     #########################
 
