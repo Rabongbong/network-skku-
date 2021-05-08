@@ -4,24 +4,6 @@ from logHandler import logHandler
 import time
 
 
-def receiveACK(senderSocket):
-  global windowSize
-  global checkAck
-  global sendBuffer
-  pdb.set_trace()
-  newMsg, recvAddr= senderSocket.recvfrom(1400)
-  ACK =  newMsg.decode()
-  lock.acquire()
-  logProc.writeAck(ACK, 'received')
-  lock.release()
-  for i in range(0, ACK):
-    del sendBuffer[i]
-  lock.acquire()
-  windowSize+=1
-  lock.release()
-  
-
-
 def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
 
   logProc = logHandler()
@@ -37,11 +19,14 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
   checkACK={}      # check ACK is arrived or not
   checkTime={}     # check time(packet)
   flag=1           # 파일을 다 읽었는지 여부 표시
-  
+  ACK=-1           # ACK  
 
   logProc.startLogging("testSendLogFile.txt")
   sendfile = open(srcFilename, 'rb')
-  
+  resHeader=''
+  senderSocket.settimeout(1.0)
+
+
   # 초기에 packet 보내기
   while windowSize!=0:
     if serialNumber == 0:
@@ -52,11 +37,10 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
       sendData += fileData
       sendBuffer[serialNumber]=sendData
       senderSocket.sendto(sendData, (recvAddr, serverPort))
-      lock.acquire()
       logProc.writePkt(serialNumber, 'sent')
-      lock.release()
       windowSize -= 1
       serialNumber += 1
+
     else:
       resHeader += str(serialNumber)
       fileData = sendfile.read(1400-len(resHeader))
@@ -64,15 +48,25 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
       sendData += fileData
       sendBuffer[serialNumber]=sendData
       senderSocket.sendto(sendData, (recvAddr, serverPort))
-      lock.acquire()
       logProc.writePkt(serialNumber, 'sent')
-      lock.release()
       windowSize -= 1
       serialNumber += 1
 
 
   while True:
-    newMsg, recvAddr= senderSocket.recvfrom(1400)
+    try:
+      newMsg, recvAddr = senderSocket.recvfrom(1400)
+
+    except timeout:
+      senderSocket.sendto(sendBuffer[ACK+1], (recvAddr, serverPort))
+      logProc.writePkt(serialNumber, 'retransmitted')
+
+    else:
+      ACK =  newMsg.decode()
+      logProc.writeAck(ACK, 'received')
+      for i in range(0, ACK):
+        del sendBuffer[i]
+
 
     if serialNumber == 0:
       resHeader += dstFilename
@@ -82,11 +76,9 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
       sendData += fileData
       sendBuffer[serialNumber]=sendData
       senderSocket.sendto(sendData, (recvAddr, serverPort))
-      lock.acquire()
       logProc.writePkt(serialNumber, 'sent')
       windowSize -= 1
       serialNumber += 1
-      lock.release()
 
       else:
         resHeader += str(serialNumber)
@@ -108,12 +100,14 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
     
     if flag ==0:
       break
-      # logProc.writeEnd(throughput, avgRTT)
+
+  sendfile.close();
+  logProc.writeEnd(throughput, avgRTT)
     ##########################
 
 
 if __name__=='__main__':
-  lock = threading.Lock()
+
   recvAddr = sys.argv[1]  #receiver IP address
   windowSize = int(sys.argv[2])   #window size
   srcFilename = sys.argv[3]   #source file name
