@@ -8,16 +8,16 @@ avgRTT = 1.0
 devRTT = 0.1
 
 def calculateTimeout(sampleRTT):
-    global avgRTT
-    global devRTT
+  global avgRTT
+  global devRTT
     
-    a = 0.125
-    b = 0.25
+  a = 0.125
+  b = 0.25
 
-    avgRTT = (1 - a) * avgRTT + a * sampleRTT
-    devRTT = (1 - b) * devRTT + b * abs(sampleRTT - avgRTT) 
-    
-    return avgRTT + 4 * devRTT
+  avgRTT = (1 - a) * avgRTT + a * sampleRTT
+  devRTT = (1 - b) * devRTT + b * abs(sampleRTT - avgRTT)     
+  return avgRTT + 4 * devRTT
+
 
 def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
 
@@ -109,6 +109,10 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
         ack = ACK
 
         while sendWindowSize!=0:
+
+          if serialNumber ==lastSerialNumber:
+            flag=1
+            
           resHeader += dstFilename
           resHeader += '\0' * (49-len(dstFilename))
           resHeader += '0' * (50-len(str(serialNumber)))
