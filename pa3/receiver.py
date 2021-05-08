@@ -34,7 +34,8 @@ def fileReceiver():
   while True:
     message, senderAddress = receiverSocket.recvfrom(1400)
     filename, serialNumber, flag, body = parsePacket(message)
-
+    print(filename)
+    print(serialNumber)
     if not dstFilename:
       dstFilename = filename
       writefile = open(dstFilename, 'wb')

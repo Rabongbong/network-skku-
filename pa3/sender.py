@@ -37,6 +37,7 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
   ack=0            # ack #
   duplicateFlag =0 # check duplicate
   timeOut = 1.0
+  sendWindowSize=windowSize
 
   logProc.startLogging("testSendLogFile.txt")
   sendfile = open(srcFilename, 'rb')
@@ -46,7 +47,11 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
   start_time = time.time()
 
   # 초기에 packet 보내기(header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
-  while windowSize!=0:
+  while sendWindowSize >0:
+    serialNumber = ack + windowSize-sendWindowSize
+    if serialNumber > lastSerialNumber:
+      break
+
     resHeader += dstFilename
     resHeader += '\0' * (49-len(dstFilename))
     resHeader += '0' * (50-len(str(serialNumber)))
@@ -108,11 +113,14 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
         sendWindowSize = ACK - ack
         ack = ACK
 
-        while sendWindowSize!=0:
-
+        while sendWindowSize >0:
+          
+          serialNumber = ack + 1 + windowSize-sendWindowSize
+          if serialNumber > lastSerialNumber:
+            break
           if serialNumber ==lastSerialNumber:
             flag=1
-            
+
           resHeader += dstFilename
           resHeader += '\0' * (49-len(dstFilename))
           resHeader += '0' * (50-len(str(serialNumber)))
