@@ -22,59 +22,37 @@ header_fn = None
 sender = None
 
 # Is the last packet sent
-is_last_packet_sent = False
-
-# Last transmit time
-last_transmit_time = None
+# is_last_packet_sent = False
 
 # Single start time 
 start_time = None
 
-# Packet size
-packet_size = 1400
-
-# Header size 
-header_size = 200
-
-# Header flag for the last packet
-header_flag_size = 1
-
-# Header file name size
-header_fname_size = 149
-
-# Header packet number size 
-header_pnum_size = 50
-
 # Transmitted time per packet
 transmitted_time = {}
-
-# Body size
-body_size = packet_size - header_size
-##############################
 
 
 # padding packet number 
 def paddingNumber(n):
     s = str(n)
-    if len(s) > header_pnum_size:
+    if len(s) > 50:
         return
-    return '0' * (header_pnum_size - len(s)) + s
+    return '0' * (50 - len(s)) + s
 
 # padding packet Filename
 def paddingFilename(s):
-    if len(s) > header_fname_size:
+    if len(s) > 49:
         return
-    return s + '\0' * (header_fname_size - len(s))
+    return s + '\0' * (49 - len(s))
 
 # Read data for each packet
 def fileRead(f, seq):
-    f.seek(seq*body_size)
-    r = f.read(body_size)
+    f.seek(seq*1300)
+    r = f.read(1300)
     return r
 
 # Send packet to receiver
 def sendPacket(f, seq, last_packet):
-    global is_last_packet_sent
+    # global is_last_packet_sent
 
     # Make packet number for header
     header_pn = paddingNumber(seq).encode()
@@ -86,7 +64,7 @@ def sendPacket(f, seq, last_packet):
     # if the packet is the last packet, flag is set to O
     if seq == last_packet:
         header_flag = "O"
-        is_last_packet_sent = True
+        # is_last_packet_sent = True
 
     else:
         header_flag = "X"
@@ -98,15 +76,13 @@ def sendPacket(f, seq, last_packet):
     transmitted_time[seq] = time.time()
 
 # Calculate timeout by rtt
-def calTimeout(sample_rtt):
+def calculateTimeout(sample_rtt):
     global avg_rtt
     global dev_rtt
     
-    # Ratio
     a = 0.125
     b = 0.25
     
-    # Calculate dev_rtt and avg_rtt
     avg_rtt = (1 - a) * avg_rtt + a * sample_rtt
     dev_rtt = (1 - b) * dev_rtt + b * abs(sample_rtt - avg_rtt) 
     
@@ -119,10 +95,9 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     global header_fn
     global window_size
     global dest
-    global is_last_packet_sent
+    # global is_last_packet_sent
     global sender
     global start_time
-    global last_transmit_time
 
     logProc = logHandler()
     # File discriptor
@@ -188,7 +163,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
             # ack receive -> adjust timeout value
             try:
                 sample_rtt = time.time() - transmitted_time[ack] 
-                to = calTimeout(sample_rtt)
+                to = calculateTimeout(sample_rtt)
                 sender.settimeout(to)
 
             except KeyError:
@@ -234,8 +209,6 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                     logProc.writePkt(seq_base+1, 'retransmitted')
                     duplicated = 0
 
-                else:
-                    last_transmit_time = transmitted_time[ack + 1]
 
     sender.close()
     endtime = time.time()
@@ -259,7 +232,7 @@ if __name__=='__main__':
     if srcFilename in os.listdir():
 
         # Last packet number
-        last_packet = os.stat(srcFilename).st_size // body_size
+        last_packet = os.stat(srcFilename).st_size // 1300
 
         # Call sender function
         fileSender(srcFilename, dstFilename, last_packet, windowSize, dest)
