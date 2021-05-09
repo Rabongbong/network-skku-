@@ -6,20 +6,26 @@ from logHandler import logHandler
 
 
 # RTT time
-avgRTT = 1.0
-devRTT = 0.1
+avg_rtt = 1.0
+dev_rtt = 0.1
 
 # Sender socket
 senderSocket = None
 
-# save time for each packet
-timeBuffer = {}
 
 # File name in header
 header_fn = None
 
-# Receiver ip
-dest = None
+
+
+# Is the last packet sent
+# is_last_packet_sent = False
+
+
+
+# Transmitted time per packet
+transmitted_time = {}
+
 
 # padding packet number 
 def paddingNumber(n):
@@ -41,8 +47,8 @@ def fileRead(f, seq):
     return r
 
 # Send packet to receiver
-# (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
 def sendPacket(f, seq, last_packet, receiver):
+    # global is_last_packet_sent
 
     # Make packet number for header
     header_pn = paddingNumber(seq).encode()
@@ -50,12 +56,14 @@ def sendPacket(f, seq, last_packet, receiver):
     # Make body of packet
     body = fileRead(f, seq)
 
+
     # if the packet is the last packet, flag is set to O
     if seq == last_packet:
-        header_flag = "1"
+        header_flag = "O"
+        # is_last_packet_sent = True
 
     else:
-        header_flag = "0"
+        header_flag = "X"
 
     # Send packet
     senderSocket.sendto(header_flag.encode() + header_fn + header_pn + body, receiver)
@@ -63,24 +71,25 @@ def sendPacket(f, seq, last_packet, receiver):
     # Store Transmission time
     transmitted_time[seq] = time.time()
 
-# Calculate timeout 
-def calculateTimeout(sampleRTT):
-    global avgRTT
-    global devRTT
+# Calculate timeout by rtt
+def calculateTimeout(sample_rtt):
+    global avg_rtt
+    global dev_rtt
     
     a = 0.125
     b = 0.25
     
-    avgRTT = (1 - a) * avgRTT + a * sampleRTT
-    devRTT = (1 - b) * devRTT + b * abs(sampleRTT - avgRTT) 
+    avg_rtt = (1 - a) * avg_rtt + a * sample_rtt
+    dev_rtt = (1 - b) * dev_rtt + b * abs(sample_rtt - avg_rtt) 
     
-    return avgRTT + 4 * devRTT
+    return avg_rtt + 4 * dev_rtt
 
-
-# FILE Sender function
+# Sender function
 def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
+    # Use global variable
     global header_fn
+    # global is_last_packet_sent
     global senderSocket
 
     logProc = logHandler()
@@ -100,8 +109,8 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
     senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
-    timeout = 1.0 # initial value = 1 second
-    senderSocket.settimeout(timeout)
+    to = 1.0 # initial value = 1 second
+    senderSocket.settimeout(to)
 
     start_time = time.time()
 
@@ -123,10 +132,10 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
             
         except socket.timeout:
 
-            lt = round(timeBuffer[seq_base+1] - start_time, 3)
+            lt = round(transmitted_time[seq_base+1] - start_time, 3)
             sendPacket(f, seq_base + 1, last_number, receiver)
 
-            event = "timeout since " + str(lt)  + " (timeout value " + str(round(timeout, 3)) +")"
+            event = "timeout since " + str(lt)  + " (timeout value " + str(round(to, 3)) +")"
             logProc.writePkt(seq_base+1, event)
             logProc.writePkt(seq_base+1, 'retransmitted')
             duplicated = 0
@@ -142,9 +151,9 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
             # ack receive -> adjust timeout value
             try:
-                sampleRTT = time.time() - timeBuffer[ack] 
-                timeout = calculateTimeout(sampleRTT)
-                senderSocket.settimeout(timeout)
+                sample_rtt = time.time() - transmitted_time[ack] 
+                to = calculateTimeout(sample_rtt)
+                senderSocket.settimeout(to)
 
             except KeyError:
                 # duplicated key
@@ -160,10 +169,10 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
             elif ack > seq_base:
                 duplicated = 0
-                key_list = list(timeBuffer.keys())
+                key_list = list(transmitted_time.keys())
                 for key in key_list:
                     if key <= ack:
-                        del timeBuffer[key]
+                        del transmitted_time[key]
                 available_window = ack - seq_base
                 seq_base = ack
 
@@ -189,14 +198,14 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
     endtime = time.time()
 
     throughput = (last_number + 1) / (endtime - start_time)
-    logProc.writeEnd(throughput, avgRTT*1000)
+    logProc.writeEnd(throughput, avg_rtt*1000)
 
     f.close()
 
 
 
 if __name__=='__main__':
-    
+
     recvAddr = sys.argv[1]  #receiver IP address
     windowSize = int(sys.argv[2])   #window size
     srcFilename = sys.argv[3]   #source file name
