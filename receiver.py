@@ -72,9 +72,9 @@ def fileReceiver():
 # Parsing packet data
 def packetParsing(packet):
     fl = packet[:1].decode()
-    fn = packet[1:150].decode().split('\0')[0]
-    pn = int(packet[150:200].decode())
-    fb = packet[200:]
+    fn = packet[1:50].decode().split('\0')[0]
+    pn = int(packet[50:100].decode())
+    fb = packet[00:]
     return fl, fn, pn, fb
 
 if __name__=='__main__':
