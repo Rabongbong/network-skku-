@@ -8,16 +8,13 @@ from logHandler import logHandler
 avgRTT = 1.0
 devRTT = 0.1
 
-# Window size
-window_size = None
 
 # Receiver ip
 dest = None
 
-# File name in header
+# File name(dstFilename)
 sendFileName = None
 
-# Sender socket
 senderSocket = None
 
 # save time for each packet
@@ -27,13 +24,6 @@ timeBuffer = {}
 packetBuffer= {}
 
 ##############################
-
-# padding packet number 
-def paddingNumber(n):
-    s = str(n)
-    if len(s) > 50:
-        return
-    return '0' * (50 - len(s)) + s
 
 # padding packet Filename
 def paddingFilename(s):
@@ -61,8 +51,6 @@ def sendPacket(f, seq, lastPacket):
 
     # Make body of packet
     body = fileRead(f, seq)
-
-
 
     # Send packet
     senderSocket.sendto(flag.encode() + sendFileName + packetN + body, dest)
@@ -95,8 +83,8 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     logProc = logHandler()
     logProc.startLogging("testSendLogFile.txt")
 
-
-    sendFileName = paddingFilename(dstFilename).encode()
+    sendFileName = (dstFilename + '\0' * (49 - len(dstFilename))).encode()
+    # sendFileName = paddingFilename(dstFilename).encode()
     # window_size = windowSize
     availableWindow = windowSize
     dest = ds
@@ -111,7 +99,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
 
     start_time = time.time()
 
-    # Send packets as much as available window size
+    # 초기에 windowSize 만큼 패킷을 보낸다.
     while availableWindow > 0:
         packetNumber = serialN + 1 + windowSize - availableWindow
         if packetNumber > lastNumber:
