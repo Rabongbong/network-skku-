@@ -24,12 +24,6 @@ packetBuffer= {}
 
 ##############################
 
-# Read data for each packet
-def fileRead(readFile, seq):
-    readFile.seek(seq*1300)
-    r = readFile.read(1300)
-    return r
-
 # Send packet to receiver (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
 def sendPacket(readFile, seq, lastPacket):
 
@@ -42,14 +36,13 @@ def sendPacket(readFile, seq, lastPacket):
     # Make packet number 
     packetN = ('0' * (50 - len(str(seq))) + str(seq)).encode()
 
-    # Make body of packet
+    # search body in file
     readFile.seek(seq*1300)
     body = readFile.read(1300)
 
-    # Send packet
     senderSocket.sendto(flag.encode() + sendFileName + packetN + body, dest)
 
-    # Store Transmission time
+    # Store time for each packet
     timeBuffer[seq] = time.time()
 
 # Calculate timeout by rtt
@@ -124,14 +117,14 @@ def fileSender(srcFilename, dstFilename, lastPacket, windowSize, ds):
                 timeOut = calTimeout(sampleRTT)
                 senderSocket.settimeout(timeOut)
 
-            except KeyError:
-                # check duplicated key
-                checkduplicated = checkduplicated + 1
-                if checkduplicated == 2:
-                    sendPacket(readFile, serialN + 1, lastPacket)
-                    logProc.writePkt(serialN, '3 duplicated ACKs')
-                    logProc.writePkt(serialN+1, 'retransmitted')
-                    checkduplicated = 0
+            # except KeyError:
+            #     # check duplicated key
+            #     checkduplicated = checkduplicated + 1
+            #     if checkduplicated == 2:
+            #         sendPacket(readFile, serialN + 1, lastPacket)
+            #         logProc.writePkt(serialN, '3 duplicated ACKs')
+            #         logProc.writePkt(serialN+1, 'retransmitted')
+            #         checkduplicated = 0
             
             if ack == lastPacket:
                 break
