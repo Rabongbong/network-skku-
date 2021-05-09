@@ -46,7 +46,7 @@ def sendPacket(readFile, seq, lastPacket):
     timeBuffer[seq] = time.time()
 
 # Calculate timeout by rtt
-def calTimeout(sampleRTT):
+def calculateTimeout(sampleRTT):
     global avgRTT
     global devRTT
     a = 0.125
@@ -114,7 +114,7 @@ def fileSender(srcFilename, dstFilename, lastPacket, windowSize, ds):
 
             try:
                 sampleRTT = time.time() - timeBuffer[ack] 
-                timeOut = calTimeout(sampleRTT)
+                timeOut = calculateTimeout(sampleRTT)
                 senderSocket.settimeout(timeOut)
 
             except KeyError:
