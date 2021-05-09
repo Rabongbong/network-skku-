@@ -117,14 +117,14 @@ def fileSender(srcFilename, dstFilename, lastPacket, windowSize, ds):
                 timeOut = calTimeout(sampleRTT)
                 senderSocket.settimeout(timeOut)
 
-            # except KeyError:
-            #     # check duplicated key
-            #     checkduplicated = checkduplicated + 1
-            #     if checkduplicated == 2:
-            #         sendPacket(readFile, serialN + 1, lastPacket)
-            #         logProc.writePkt(serialN, '3 duplicated ACKs')
-            #         logProc.writePkt(serialN+1, 'retransmitted')
-            #         checkduplicated = 0
+            except KeyError:
+                # check duplicated key
+                checkduplicated = checkduplicated + 1
+                if checkduplicated == 2:
+                    sendPacket(readFile, serialN + 1, lastPacket)
+                    logProc.writePkt(serialN, '3 duplicated ACKs')
+                    logProc.writePkt(serialN+1, 'retransmitted')
+                    checkduplicated = 0
             
             if ack == lastPacket:
                 break

@@ -71,7 +71,7 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
     try:
       newMsg, recvAddr = senderSocket.recvfrom(150)
 
-    except timeout:
+    except socket.timeout:
 
       outTime = round(timeBuffer[ack+1]-start_time, 3)
       senderSocket.sendto(sendBuffer[ack+1], (recvAddr, serverPort))
