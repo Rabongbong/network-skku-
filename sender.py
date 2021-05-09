@@ -1,27 +1,31 @@
 import sys
-import socket
+from socket import *
 import os
 import time
 from logHandler import logHandler
 
-
+###### Global variables #######
 # RTT time
 avg_rtt = 1.0
 dev_rtt = 0.1
 
-# Sender socket
-senderSocket = None
+# Window size
+window_size = None
 
+# Receiver ip
+dest = None
 
 # File name in header
 header_fn = None
 
-
+# Sender socket
+sender = None
 
 # Is the last packet sent
 # is_last_packet_sent = False
 
-
+# Single start time 
+start_time = None
 
 # Transmitted time per packet
 transmitted_time = {}
@@ -47,7 +51,7 @@ def fileRead(f, seq):
     return r
 
 # Send packet to receiver
-def sendPacket(f, seq, last_packet, receiver):
+def sendPacket(f, seq, last_packet):
     # global is_last_packet_sent
 
     # Make packet number for header
@@ -66,7 +70,7 @@ def sendPacket(f, seq, last_packet, receiver):
         header_flag = "X"
 
     # Send packet
-    senderSocket.sendto(header_flag.encode() + header_fn + header_pn + body, receiver)
+    sender.sendto(header_flag.encode() + header_fn + header_pn + body, dest)
 
     # Store Transmission time
     transmitted_time[seq] = time.time()
@@ -89,28 +93,31 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
     # Use global variable
     global header_fn
+    global window_size
+    global dest
     # global is_last_packet_sent
-    global senderSocket
+    global sender
+    global start_time
 
     logProc = logHandler()
     # File discriptor
     f = open(srcFilename, 'rb')
     logProc.startLogging("testSendLogFile.txt")
-
+    
+    dest = (recvAddr, 10080)
     # Assign variables to global variable
-    serverPort = 10080
     header_fn = paddingFilename(dstFilename).encode()
     window_size = windowSize
     available_window = window_size
-    receiver = (recvAddr, serverPort)
+    dest = ds
     seq_base = -1
     last_number = last_packet
     duplicated = 0
 
-    senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sender = socket(AF_INET, SOCK_DGRAM)
     
     to = 1.0 # initial value = 1 second
-    senderSocket.settimeout(to)
+    sender.settimeout(to)
 
     start_time = time.time()
 
@@ -120,7 +127,9 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
         if packet_number > last_number:
             break
 
-        sendPacket(f, packet_number, last_number, receiver)
+        sendPacket(f, packet_number, last_number)
+        log_time = transmitted_time[packet_number] - start_time
+
         logProc.writePkt(packet_number, 'sent')
 
         available_window -= 1
@@ -128,13 +137,14 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
     # After receive ack from receiver
     while True:
         try:
-            ack, receiver = senderSocket.recvfrom(100)
+            ack, receiver = sender.recvfrom(100)
             
-        except socket.timeout:
+        except timeout:
 
             lt = round(transmitted_time[seq_base+1] - start_time, 3)
-            sendPacket(f, seq_base + 1, last_number, receiver)
+            sendPacket(f, seq_base + 1, last_number)
 
+            log_time = transmitted_time[seq_base + 1] - start_time
             event = "timeout since " + str(lt)  + " (timeout value " + str(round(to, 3)) +")"
             logProc.writePkt(seq_base+1, event)
             logProc.writePkt(seq_base+1, 'retransmitted')
@@ -146,6 +156,8 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
             
         else:
             ack = int(ack.decode())
+            arrived_time = time.time()
+            log_time = arrived_time - start_time
             logProc.writeAck(ack, 'received')
 
 
@@ -153,15 +165,17 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
             try:
                 sample_rtt = time.time() - transmitted_time[ack] 
                 to = calculateTimeout(sample_rtt)
-                senderSocket.settimeout(to)
+                sender.settimeout(to)
 
             except KeyError:
                 # duplicated key
                 duplicated = duplicated + 1
                 if duplicated == 2:
-                    sendPacket(f, seq_base + 1, last_number, receiver)
+                    sendPacket(f, seq_base + 1, last_number)
+                    log_time = transmitted_time[seq_base+1] - start_time
                     logProc.writePkt(seq_base, '3 duplicated ACKs')
                     logProc.writePkt(seq_base+1, 'retransmitted')
+
                     duplicated = 0
             
             if ack == last_number:
@@ -180,7 +194,9 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
                     packet_number = seq_base + 1 + window_size - available_window
                     if packet_number > last_number:
                         break
-                    sendPacket(f, packet_number, last_number, receiver)
+
+                    sendPacket(f, packet_number, last_number)
+                    log_time = transmitted_time[packet_number] - start_time
                     logProc.writePkt(packet_number, 'sent')
 
                     available_window -= 1
@@ -188,13 +204,14 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
             elif ack == seq_base:
                 if duplicated == 3:
-                    sendPacket(f, seq_base + 1, last_number, receiver)
+                    sendPacket(f, seq_base + 1, last_number)
+                    log_time = transmitted_time[seq_base+1] - start_time
                     logProc.writePkt(seq_base, '3 duplicated ACKs')
                     logProc.writePkt(seq_base+1, 'retransmitted')
                     duplicated = 0
 
 
-    senderSocket.close()
+    sender.close()
     endtime = time.time()
 
     throughput = (last_number + 1) / (endtime - start_time)
