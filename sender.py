@@ -21,10 +21,6 @@ header_fn = None
 # Sender socket
 senderSocket = None
 
-
-# Last transmit time
-last_transmit_time = None
-
 # Single start time 
 start_time = None
 
@@ -106,7 +102,6 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     global dest
     global senderSocket
     global start_time
-    global last_transmit_time
 
     # File discriptor
     f = open(srcFilename, 'rb')
@@ -205,8 +200,8 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                     logProc.writePkt(seq_base+1, 'retransmitted')
                     duplicated = 0
 
-                else:
-                    last_transmit_time = timeBuffer[ack + 1]
+                # else:
+                #     last_transmit_time = timeBuffer[ack + 1]
 
     senderSocket.close()
     endtime = time.time()
