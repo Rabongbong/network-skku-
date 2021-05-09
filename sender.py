@@ -20,9 +20,6 @@ header_fn = None
 # Sender socket
 senderSocket = None
 
-# Single start time 
-start_time = None
-
 # save time for each packet
 timeBuffer = {}
 
@@ -50,7 +47,7 @@ def fileRead(f, seq):
     r = f.read(1300)
     return r
 
-# Send packet to receiver
+# Send packet to receiver (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
 def sendPacket(f, seq, last_packet):
 
     # Make packet number for header
@@ -74,14 +71,14 @@ def sendPacket(f, seq, last_packet):
     timeBuffer[seq] = time.time()
 
 # Calculate timeout by rtt
-def calTimeout(sample_rtt):
+def calTimeout(sampleRTT):
     global avgRTT
     global devRTT
     a = 0.125
     b = 0.25
     
-    avgRTT = (1 - a) * avgRTT + a * sample_rtt
-    devRTT = (1 - b) * devRTT + b * abs(sample_rtt - avgRTT) 
+    avgRTT = (1 - a) * avgRTT + a * sampleRTT
+    devRTT = (1 - b) * devRTT + b * abs(sampleRTT - avgRTT) 
     return avgRTT + 4 * devRTT
 
 # Sender function
@@ -92,7 +89,6 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     global window_size
     global dest
     global senderSocket
-    global start_time
 
     # File discriptor
     f = open(srcFilename, 'rb')
@@ -103,9 +99,9 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     # Assign variables to global variable
     header_fn = paddingFilename(dstFilename).encode()
     window_size = windowSize
-    available_window = window_size
+    availableWindow = window_size
     dest = ds
-    seq_base = -1
+    serialN = -1
     lastNumber = last_packet
     checkduplicated = 0
 
@@ -117,14 +113,14 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     start_time = time.time()
 
     # Send packets as much as available window size
-    while available_window > 0:
-        packetNumber = seq_base + 1 + window_size - available_window
+    while availableWindow > 0:
+        packetNumber = serialN + 1 + window_size - availableWindow
         if packetNumber > lastNumber:
             break
 
         sendPacket(f, packetNumber, lastNumber)
         logProc.writePkt(packetNumber, 'sent')
-        available_window -= 1
+        availableWindow -= 1
 
     # After receive ack from receiver
     while True:
@@ -133,12 +129,10 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
             
         except socket.timeout:
 
-            lt = round(timeBuffer[seq_base+1] - start_time, 3)
-            sendPacket(f, seq_base + 1, lastNumber)
-
-            event = "timeout since " + str(lt)  + " (timeout value " + str(round(timeOut, 3)) +")"
-            logProc.writePkt(seq_base+1, event)
-            logProc.writePkt(seq_base+1, 'retransmitted')
+            lt = round(timeBuffer[serialN+1] - start_time, 3)
+            sendPacket(f, serialN + 1, lastNumber)
+            logProc.writePkt(serialN+1, "timeout since " + str(lt)  + " (timeout value " + str(round(timeOut, 3)) +")")
+            logProc.writePkt(serialN+1, 'retransmitted')
             checkduplicated = 0
             
         else:
@@ -146,45 +140,45 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
             logProc.writeAck(ack, 'received')
 
             try:
-                sample_rtt = time.time() - timeBuffer[ack] 
-                timeOut = calTimeout(sample_rtt)
+                sampleRTT = time.time() - timeBuffer[ack] 
+                timeOut = calTimeout(sampleRTT)
                 senderSocket.settimeout(timeOut)
 
             except KeyError:
-                # checkduplicated key
+                # check duplicated key
                 checkduplicated = checkduplicated + 1
                 if checkduplicated == 2:
-                    sendPacket(f, seq_base + 1, lastNumber)
-                    logProc.writePkt(seq_base, '3 duplicated ACKs')
-                    logProc.writePkt(seq_base+1, 'retransmitted')
+                    sendPacket(f, serialN + 1, lastNumber)
+                    logProc.writePkt(serialN, '3 duplicated ACKs')
+                    logProc.writePkt(serialN+1, 'retransmitted')
                     checkduplicated = 0
             
             if ack == lastNumber:
                 break
 
-            elif ack > seq_base:
+            elif ack > serialN:
                 checkduplicated = 0
                 key_list = list(timeBuffer.keys())
                 for key in key_list:
                     if key <= ack:
                         del timeBuffer[key]
-                available_window = ack - seq_base
-                seq_base = ack
+                availableWindow = ack - serialN
+                serialN = ack
 
-                while available_window > 0:
-                    packetNumber = seq_base + 1 + window_size - available_window
+                while availableWindow > 0:
+                    packetNumber = serialN + 1 + window_size - availableWindow
                     if packetNumber > lastNumber:
                         break
 
                     sendPacket(f, packetNumber, lastNumber)
                     logProc.writePkt(packetNumber, 'sent')
-                    available_window -= 1
+                    availableWindow -= 1
 
-            elif ack == seq_base:
+            elif ack == serialN:
                 if checkduplicated == 3:
-                    sendPacket(f, seq_base + 1, lastNumber)
-                    logProc.writePkt(seq_base, '3 duplicated ACKs')
-                    logProc.writePkt(seq_base+1, 'retransmitted')
+                    sendPacket(f, serialN + 1, lastNumber)
+                    logProc.writePkt(serialN, '3 duplicated ACKs')
+                    logProc.writePkt(serialN+1, 'retransmitted')
                     checkduplicated = 0
 
     senderSocket.close()
@@ -204,10 +198,9 @@ if __name__=='__main__':
     
     dest = (recvAddr, 10080)
     
-    # Last packet number
+    # calculate last_packet
     last_packet = os.stat(srcFilename).st_size // 1300
 
-    # Call sender function
     fileSender(srcFilename, dstFilename, last_packet, windowSize, dest)
 
 
