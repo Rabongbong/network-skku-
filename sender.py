@@ -16,7 +16,10 @@ senderSocket = None
 timeBuffer = {}
 
 # File name in header
-sendFileName = None
+header_fn = None
+
+# Receiver ip
+dest = None
 
 # padding packet number 
 def paddingNumber(n):
@@ -38,16 +41,15 @@ def fileRead(f, seq):
     return r
 
 # Send packet to receiver
+# (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
 def sendPacket(f, seq, last_packet, receiver):
 
-    global sendFileName
     # Make packet number for header
     header_pn = paddingNumber(seq).encode()
 
     # Make body of packet
     body = fileRead(f, seq)
 
-    header_fn = paddingFilename(sendFileName).encode()
     # if the packet is the last packet, flag is set to O
     if seq == last_packet:
         header_flag = "1"
@@ -78,7 +80,7 @@ def calculateTimeout(sampleRTT):
 # FILE Sender function
 def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
-    global sendFileName
+    global header_fn
     global senderSocket
 
     logProc = logHandler()
@@ -88,7 +90,7 @@ def fileSender(recvAddr, srcFilename, dstFilename, last_packet, windowSize):
 
     # Assign variables to global variable
     serverPort = 10080
-    sendFileName = dstFilename
+    header_fn = paddingFilename(dstFilename).encode()
     window_size = windowSize
     available_window = window_size
     receiver = (recvAddr, serverPort)
