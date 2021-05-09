@@ -21,7 +21,7 @@ loss : 1%
 """
 
 class Assignment3Topo(Topo):
-    def build(self, bw_v=10, delay_v="10ms", loss_v=0):
+    def build(self, bw_v=10, delay_v="10ms", loss_v=2):
         "Creating Switch"
         switch1 = self.addSwitch('s1')
         switch2 = self.addSwitch('s2')
@@ -43,7 +43,7 @@ def runMininet():
     Cleanup.cleanup()   #Cleaning up the Mininet before start
 
     "You can change the bottleneck link property by modifing these parameter"
-    myTopo = Assignment3Topo(bw_v = 10, delay_v="10ms", loss_v=0)  #make test network topology
+    myTopo = Assignment3Topo(bw_v = 10, delay_v="10ms", loss_v=2)  #make test network topology
     net = Mininet(topo=myTopo, link=TCLink) #make Mininet instance
     net.start()     #start Mininet
 
