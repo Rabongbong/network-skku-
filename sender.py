@@ -8,7 +8,6 @@ from logHandler import logHandler
 avgRTT = 1.0
 devRTT = 0.1
 
-
 # Receiver ip
 dest = None
 
@@ -26,13 +25,13 @@ packetBuffer= {}
 ##############################
 
 # Read data for each packet
-def fileRead(f, seq):
-    f.seek(seq*1300)
-    r = f.read(1300)
+def fileRead(readFile, seq):
+    readFile.seek(seq*1300)
+    r = readFile.read(1300)
     return r
 
 # Send packet to receiver (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
-def sendPacket(f, seq, lastPacket):
+def sendPacket(readFile, seq, lastPacket):
 
     #flag for lastPacket
     if seq == lastPacket:
@@ -44,7 +43,8 @@ def sendPacket(f, seq, lastPacket):
     packetN = ('0' * (50 - len(str(seq))) + str(seq)).encode()
 
     # Make body of packet
-    body = fileRead(f, seq)
+    readFile.seek(seq*1300)
+    body = readFile.read(1300)
 
     # Send packet
     senderSocket.sendto(flag.encode() + sendFileName + packetN + body, dest)
