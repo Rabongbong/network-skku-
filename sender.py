@@ -35,20 +35,20 @@ def sendPacket(f, seq, last_packet, receiver):
         header_flag = "1"
     else:
         header_flag = "0"
-    sendHeader+=header_flag.encode()
+    sendHeader+=header_flag
 
     # Make packet number
     packetNumber = '0' * (50 - len(str(seq))) + str(seq)
-    sendHeader+=packetNumber.encode()   
+    sendHeader+=packetNumber   
 
     # Make filename
     sendFile= '\0' * (49 - len(sendFileName))
-    sendHeader+=sendFile.encode()   
+    sendHeader+=sendFile  
 
     # Make body of packet
     body = fileRead(f, seq)
 
-    senderSocket.sendto(sendHeader+ body, receiver)
+    senderSocket.sendto(sendHeader.encode()+ body, receiver)
     timeBuffer[seq] = time.time()
 
 # Calculate timeout 
