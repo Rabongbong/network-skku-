@@ -19,10 +19,8 @@ dest = None
 header_fn = None
 
 # Sender socket
-sender = None
+senderSocket = None
 
-# Is the last packet sent
-is_last_packet_sent = False
 
 # Last transmit time
 last_transmit_time = None
@@ -39,42 +37,33 @@ header_size = 100
 # Header flag for the last packet
 header_flag_size = 1
 
-# Header file name size
-header_fname_size = 49
-
-# Header packet number size 
-header_pnum_size = 50
-
 # Transmitted time per packet
 transmitted_time = {}
 
-# Body size
-body_size = packet_size - header_size
-##############################
 
+##############################
 
 # padding packet number 
 def paddingNumber(n):
     s = str(n)
-    if len(s) > header_pnum_size:
+    if len(s) > 50:
         return
-    return '0' * (header_pnum_size - len(s)) + s
+    return '0' * (50 - len(s)) + s
 
 # padding packet Filename
 def paddingFilename(s):
-    if len(s) > header_fname_size:
+    if len(s) > 49:
         return
-    return s + '\0' * (header_fname_size - len(s))
+    return s + '\0' * (49 - len(s))
 
 # Read data for each packet
 def fileRead(f, seq):
-    f.seek(seq*body_size)
-    r = f.read(body_size)
+    f.seek(seq*1300)
+    r = f.read(1300)
     return r
 
 # Send packet to receiver
 def sendPacket(f, seq, last_packet):
-    global is_last_packet_sent
 
     # Make packet number for header
     header_pn = paddingNumber(seq).encode()
@@ -86,13 +75,12 @@ def sendPacket(f, seq, last_packet):
     # if the packet is the last packet, flag is set to O
     if seq == last_packet:
         header_flag = "1"
-        is_last_packet_sent = True
 
     else:
         header_flag = "0"
 
     # Send packet
-    sender.sendto(header_flag.encode() + header_fn + header_pn + body, dest)
+    senderSocket.sendto(header_flag.encode() + header_fn + header_pn + body, dest)
 
     # Store Transmission time
     transmitted_time[seq] = time.time()
@@ -119,8 +107,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     global header_fn
     global window_size
     global dest
-    global is_last_packet_sent
-    global sender
+    global senderSocket
     global start_time
     global last_transmit_time
 
@@ -138,10 +125,10 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     last_number = last_packet
     duplicated = 0
 
-    sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     
     to = 1.0 # initial value = 1 second
-    sender.settimeout(to)
+    senderSocket.settimeout(to)
 
     start_time = time.time()
 
@@ -152,8 +139,6 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
             break
 
         sendPacket(f, packet_number, last_number)
-        log_time = transmitted_time[packet_number] - start_time
-
         logProc.writePkt(packet_number, 'sent')
 
         available_window -= 1
@@ -161,45 +146,39 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     # After receive ack from receiver
     while True:
         try:
-            ack, receiver = sender.recvfrom(100)
+            ack, receiver = senderSocket.recvfrom(100)
             
         except socket.timeout:
 
             lt = round(transmitted_time[seq_base+1] - start_time, 3)
             sendPacket(f, seq_base + 1, last_number)
 
-            log_time = transmitted_time[seq_base + 1] - start_time
             event = "timeout since " + str(lt)  + " (timeout value " + str(round(to, 3)) +")"
             logProc.writePkt(seq_base+1, event)
             logProc.writePkt(seq_base+1, 'retransmitted')
             duplicated = 0
 
-        except ConnectionResetError:
-            print('client is not running')
-            break
+        # except ConnectionResetError:
+        #     print('client is not running')
+        #     break
             
         else:
             ack = int(ack.decode())
-            arrived_time = time.time()
-            log_time = arrived_time - start_time
             logProc.writeAck(ack, 'received')
-
 
             # ack receive -> adjust timeout value
             try:
                 sample_rtt = time.time() - transmitted_time[ack] 
                 to = calTimeout(sample_rtt)
-                sender.settimeout(to)
+                senderSocket.settimeout(to)
 
             except KeyError:
                 # duplicated key
                 duplicated = duplicated + 1
                 if duplicated == 2:
                     sendPacket(f, seq_base + 1, last_number)
-                    log_time = transmitted_time[seq_base+1] - start_time
                     logProc.writePkt(seq_base, '3 duplicated ACKs')
                     logProc.writePkt(seq_base+1, 'retransmitted')
-
                     duplicated = 0
             
             if ack == last_number:
@@ -220,16 +199,12 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                         break
 
                     sendPacket(f, packet_number, last_number)
-                    log_time = transmitted_time[packet_number] - start_time
                     logProc.writePkt(packet_number, 'sent')
-
                     available_window -= 1
-
 
             elif ack == seq_base:
                 if duplicated == 3:
                     sendPacket(f, seq_base + 1, last_number)
-                    log_time = transmitted_time[seq_base+1] - start_time
                     logProc.writePkt(seq_base, '3 duplicated ACKs')
                     logProc.writePkt(seq_base+1, 'retransmitted')
                     duplicated = 0
@@ -237,7 +212,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                 else:
                     last_transmit_time = transmitted_time[ack + 1]
 
-    sender.close()
+    senderSocket.close()
     endtime = time.time()
 
     throughput = (last_number + 1) / (endtime - start_time)
@@ -254,9 +229,8 @@ if __name__=='__main__':
 
     dest = (recvAddr, 10080)
     
-
     # Last packet number
-    last_packet = os.stat(srcFilename).st_size // body_size
+    last_packet = os.stat(srcFilename).st_size // 1300
 
     # Call sender function
     fileSender(srcFilename, dstFilename, last_packet, windowSize, dest)
