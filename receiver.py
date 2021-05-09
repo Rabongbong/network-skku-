@@ -17,25 +17,23 @@ def fileReceiver():
   #Write your Code here
   logProc.startLogging("testRecvLogFile.txt")
   receivePacket={}           #receive packet
-  cumulativeACK=-1            #ACK
+  cumulativeACK=-1           #ACK
   last_packet = None
   start_time = time.time()
 
   while True:
-    # Get packet
     packet, senderAddress = receiverSocket.recvfrom(1400)
 
-    # Get parsed packet
     flag, file_name, packet_number, body = packetParsing(packet)
 
-    if not dstFilename: # If the first packet of file is already received 
+    if not dstFilename: 
       dstFilename = file_name
       writefile = open(dstFilename, 'wb')
         
     logProc.writePkt(packet_number, "received")
 
     # If the packet is the last one
-    if flag == 'O':
+    if flag == '1':
       last_packet = packet_number
 
     # If the packet is in-order 
@@ -69,13 +67,13 @@ def fileReceiver():
   writefile.close()
 
 #########################
-# Parsing packet data
+# Parsing packet data to flag, fileName, packetNumber, body
 def packetParsing(packet):
-    fl = packet[:1].decode()
-    fn = packet[1:50].decode().split('\0')[0]
-    pn = int(packet[50:100].decode())
-    fb = packet[00:]
-    return fl, fn, pn, fb
+    flag = packet[:1].decode()  
+    fileName = packet[1:50].decode().split('\0')[0]
+    packetNumber = int(packet[50:100].decode())
+    body = packet[100:]
+    return flag, fileName, packetNumber, body
 
 if __name__=='__main__':
     fileReceiver()
