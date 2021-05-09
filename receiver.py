@@ -1,78 +1,108 @@
 import sys
-import socket
-from logHandler import logHandler
+from socket import *
 import time
 
 
-#(header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
-def parsePacket(packet):
-  filename = packet[1:50].decode().split('\0')[0]
-  serialNumber = packet[50:100].decode()
-  flag = packet[:1].decode()
-  body = packet[100:]
-  return filename, serialNumber, flag, body
-
-
 def fileReceiver():
-  # print('receiver program starts...')
-  logProc = logHandler()
-  throughput = 0.0
+    receiver = socket(AF_INET, SOCK_DGRAM)
+    receiver.bind(('0.0.0.0', 10080))
+    receiver.setsockopt(SOL_SOCKET, SO_SNDBUF, 10000000)
+    file_name_cur = ""
+    
+    while True:
+        # Get packet
+        packet, sender = receiver.recvfrom(1400)
+
+        # Get parsed packet
+        flag, file_name, packet_number, bytes_to_write = packetParsing(packet)
+
+        if not file_name_cur: # If the first packet of file is already received 
+            file_name_cur = file_name
+            fileReceiver = FileReceiver(file_name)
+        
+        fileReceiver.writePkt(packet_number, "received")
+
+        # If the packet is the last one
+        if flag == 'O':
+            fileReceiver.calulateLastPacket(packet_number)
+
+        # If the packet is in-order 
+        if packet_number == fileReceiver.cumulative_ack + 1:
+            fileReceiver.receiveInOrder(bytes_to_write)
+
+        # If the packet is out-of-order
+        elif packet_number > fileReceiver.cumulative_ack + 1:
+            fileReceiver.receiveOutOrder(packet_number, bytes_to_write)
+
+        # Send cumulative ack
+        receiver.sendto(str(fileReceiver.cumulative_ack).encode(), sender)
+        fileReceiver.writeAck(fileReceiver.cumulative_ack)
+
+        # If receiving is done
+        if fileReceiver.isComplete():
+            fileReceiver.writeEnd()
+            exit(0)
 
 
-  #########################
-  serverPort = 10080
-  receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-  receiverSocket.bind(('', serverPort))
+class FileReceiver:
+    def __init__(self, fn):
+        self.fd = open(fn, 'wb')        # New file
+        self.cumulative_ack = -1        # cumulative_ack
+        self.upcoming_packets = {}      # Upcoming packets
+        self.last_packet = None         # The last packet name
+        self.start_time = time.time()   # Start time of receiving certain file
+        self.log = open(fn + "_receiving_log.txt", 'w') # Log file
 
-  start_time = time.time()
-  ACK=0                		#ACK
-  receivePacket={}           #receive packet
-  dstFilename=""          # destination filename
+    def calulateLastPacket(self, last_packet_number):
+            self.last_packet = last_packet_number
 
-  logProc.startLogging("testRecvLogFile.txt")
+    def receiveInOrder(self, body):
+        self.cumulative_ack += 1
+        self.fd.write(body)
 
-  while True:
-    message, senderAddress = receiverSocket.recvfrom(1400)
-    filename, serialNumber, flag, body = parsePacket(message)
-    print(filename)
-    print(serialNumber)
-    if not dstFilename:
-      dstFilename = filename
-      writefile = open(dstFilename, 'wb')
+        while True:
+            # If the recieved packet is received for the first time
+            if self.cumulative_ack + 1 not in self.upcoming_packets.keys():
+                break
 
-    logProc.writePkt(serialNumber, "received")
+            # Update the cumulative ack
+            self.cumulative_ack += 1
 
-    if serialNumber == ACK:
-      writefile.write(body)
-      ACK+=1
+            # Write received data
+            self.fd.write(self.upcoming_packets[self.cumulative_ack])
+            
+            # Remove the received packet from future packets
+            del self.upcoming_packets[self.cumulative_ack]
 
-      while True:
+    def receiveOutOrder(self, packet_number, body):
+        self.upcoming_packets[packet_number] = body
 
-        if ACK not in receivePacket.keys():
-          break
-        ACK +=1
-        writefile.write(receivePacket[ACK])
-        del receivePacket[ACK]
+    def isComplete(self):
+        return self.cumulative_ack == self.last_packet
 
-    elif serialNumber > ACK:
-      receivePacket[serialNumber]=body
+    # Log functions #
+    def writeEnd(self):
+        self.log.write('File transfer is finished.\n')
+        throughput = (self.last_packet + 1) / (time.time() - self.start_time)
+        self.log.write('Throughput : {:.2f} pkts/sec'.format(throughput))
+        self.fd.close()
+        self.log.close()
 
-    receiverSocket.sendto(str(ACK).encode(), senderAddress)
-    logProc.writeAck(serialNumber, "sent")
+    def writePkt(self, pktNum, event):
+        procTime = time.time() - self.start_time
+        self.log.write('{:1.3f} pkt: {} | {}\n'.format(procTime, pktNum, event))
 
+    def writeAck(self, ackNum):
+        procTime = time.time() - self.start_time
+        self.log.write('{:1.3f} ACK: {} | {}'.format(procTime, ackNum, "sent\n"))
 
-    # received last packet
-    if flag == '1': 
-      throughput = (ACK)/(time.time()-start_time)
-      logProc.writeEnd(throughput)
-      break
-  
-  receiverSocket.close()
-  writefile.close()
-
-
-    #Write your Code here
-    #########################
+# Parsing packet data
+def packetParsing(packet):
+    fl = packet[:1].decode()
+    fn = packet[1:150].decode().split('\0')[0]
+    pn = int(packet[150:200].decode())
+    fb = packet[200:]
+    return fl, fn, pn, fb
 
 if __name__=='__main__':
-  fileReceiver()
+    fileReceiver()

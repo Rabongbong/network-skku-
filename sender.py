@@ -36,7 +36,14 @@ packet_size = 1400
 # Header size 
 header_size = 200
 
+# Header flag for the last packet
+header_flag_size = 1
 
+# Header file name size
+header_fname_size = 149
+
+# Header packet number size 
+header_pnum_size = 50
 
 # Transmitted time per packet
 transmitted_time = {}
@@ -55,9 +62,9 @@ def paddingNumber(n):
 
 # padding packet Filename
 def paddingFilename(s):
-    if len(s) > 49:
+    if len(s) > 149:
         return
-    return s + '\0' * (49 - len(s))
+    return s + '\0' * (149 - len(s))
 
 # Read data for each packet
 def fileRead(f, seq):
