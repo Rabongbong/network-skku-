@@ -3,6 +3,7 @@ import socket
 from logHandler import logHandler
 import time
 import os
+import pdb
 
 avgRTT = 1.0
 devRTT = 0.1
@@ -78,7 +79,7 @@ def fileSender(recvAddr, windowSize, srcFilename, dstFilename):
       logProc.writePkt(ack, 'timeout since ' + str(outTime) + '(time out value ' + str(round(timeOut, 3)) + ')')
       logProc.writePkt(ack, 'retransmitted')
       duplicateFlag=0
-
+      pdb.set_trace()
 
     else:
       ACK = int(newMsg.decode())
