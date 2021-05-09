@@ -15,7 +15,7 @@ window_size = None
 dest = None
 
 # File name in header
-header_fn = None
+sendFileName = None
 
 # Sender socket
 senderSocket = None
@@ -48,24 +48,24 @@ def fileRead(f, seq):
     return r
 
 # Send packet to receiver (header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
-def sendPacket(f, seq, last_packet):
+def sendPacket(f, seq, lastPacket):
 
-    # Make packet number for header
+    #flag for lastPacket
+    if seq == lastPacket:
+        flag = "1"
+    else:
+        flag = "0"
+
+    # Make packet number 
     packetN = ('0' * (50 - len(str(seq))) + str(seq)).encode()
-    # header_pn = paddingNumber(seq).encode()
 
     # Make body of packet
     body = fileRead(f, seq)
 
-    # if the packet is the last packet, flag is set to O
-    if seq == last_packet:
-        header_flag = "1"
 
-    else:
-        header_flag = "0"
 
     # Send packet
-    senderSocket.sendto(header_flag.encode() + header_fn + packetN + body, dest)
+    senderSocket.sendto(flag.encode() + sendFileName + packetN + body, dest)
 
     # Store Transmission time
     timeBuffer[seq] = time.time()
@@ -85,8 +85,8 @@ def calTimeout(sampleRTT):
 def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
 
     # Use global variable
-    global header_fn
-    global window_size
+    global sendFileName
+    # global window_size
     global dest
     global senderSocket
 
@@ -96,10 +96,9 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     logProc.startLogging("testSendLogFile.txt")
 
 
-    # Assign variables to global variable
-    header_fn = paddingFilename(dstFilename).encode()
-    window_size = windowSize
-    availableWindow = window_size
+    sendFileName = paddingFilename(dstFilename).encode()
+    # window_size = windowSize
+    availableWindow = windowSize
     dest = ds
     serialN = -1
     lastNumber = last_packet
@@ -114,7 +113,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
 
     # Send packets as much as available window size
     while availableWindow > 0:
-        packetNumber = serialN + 1 + window_size - availableWindow
+        packetNumber = serialN + 1 + windowSize - availableWindow
         if packetNumber > lastNumber:
             break
 
@@ -166,7 +165,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                 serialN = ack
 
                 while availableWindow > 0:
-                    packetNumber = serialN + 1 + window_size - availableWindow
+                    packetNumber = serialN + 1 + windowSize - availableWindow
                     if packetNumber > lastNumber:
                         break
 
