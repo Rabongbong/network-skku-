@@ -37,13 +37,13 @@ def sendPacket(f, seq, last_packet, receiver):
         header_flag = "0"
     sendHeader+=header_flag
 
-    # Make packet number
-    packetNumber = '0' * (50 - len(str(seq))) + str(seq)
-    sendHeader+=packetNumber   
-
     # Make filename
     sendFile= '\0' * (49 - len(sendFileName))
     sendHeader+=sendFile  
+    
+    # Make packet number
+    packetNumber = '0' * (50 - len(str(seq))) + str(seq)
+    sendHeader+=packetNumber   
 
     # Make body of packet
     body = fileRead(f, seq)
