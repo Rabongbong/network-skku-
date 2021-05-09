@@ -18,26 +18,26 @@ def fileReceiver():
   logProc.startLogging("testRecvLogFile.txt")
   receivePacket={}           #receive packet
   cumulativeACK=-1           #ACK
-  last_packet = None
+  lastPacket = None
   start_time = time.time()
 
   while True:
     packet, senderAddress = receiverSocket.recvfrom(1400)
 
-    flag, file_name, packet_number, body = packetParsing(packet)
+    flag, file_name, packetNumber, body = packetParsing(packet)
 
     if not dstFilename: 
       dstFilename = file_name
       writefile = open(dstFilename, 'wb')
         
-    logProc.writePkt(packet_number, "received")
+    logProc.writePkt(packetNumber, "received")
 
-    # If the packet is the last one
+    # If receive packet is last packet
     if flag == '1':
-      last_packet = packet_number
+      lastPacket = packetNumber
 
-    # If the packet is in-order 
-    if packet_number == cumulativeACK + 1:
+
+    if packetNumber == cumulativeACK + 1:
       cumulativeACK +=1
       writefile.write(body)
 
@@ -49,17 +49,15 @@ def fileReceiver():
 
         del receivePacket[cumulativeACK]
 
-    # If the packet is out-of-order
-    elif packet_number > cumulativeACK + 1:
-      receivePacket[packet_number]=body
+    elif packetNumber > cumulativeACK + 1:
+      receivePacket[packetNumber]=body
 
-    # Send cumulative ack
     receiverSocket.sendto(str(cumulativeACK).encode(), senderAddress)
     logProc.writeAck(cumulativeACK, "sent")
 
-    # If receiving is done
-    if cumulativeACK == last_packet:
-      throughput = (last_packet+1)/(time.time()-start_time)
+    # if receive last packet
+    if cumulativeACK == lastPacket:
+      throughput = (lastPacket+1)/(time.time()-start_time)
       logProc.writeEnd(throughput)
       break
   

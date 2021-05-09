@@ -18,6 +18,18 @@ timeBuffer = {}
 # File name in header
 sendFileName = None
 
+# padding packet number 
+def paddingNumber(n):
+    s = str(n)
+    if len(s) > 50:
+        return
+    return '0' * (50 - len(s)) + s
+
+# padding packet Filename
+def paddingFilename(s):
+    if len(s) > 49:
+        return
+    return s + '\0' * (49 - len(s))
 
 # Read data for each packet
 def fileRead(f, seq):
@@ -28,28 +40,26 @@ def fileRead(f, seq):
 # Send packet to receiver
 def sendPacket(f, seq, last_packet, receiver):
 
-    sendHeader=''
     global sendFileName
-    # Make flag for last packet
-    if seq == last_packet:
-        header_flag = "1"
-    else:
-        header_flag = "0"
-    sendHeader+=header_flag
-
-    # Make filename
-    sendFile= '\0' * (49 - len(sendFileName))
-    sendHeader+=sendFile  
-    
-    # Make packet number
-    packetNumber = '0' * (50 - len(str(seq))) + str(seq)
-    sendHeader+=packetNumber   
+    # Make packet number for header
+    header_pn = paddingNumber(seq).encode()
 
     # Make body of packet
     body = fileRead(f, seq)
 
-    senderSocket.sendto(sendHeader.encode()+ body, receiver)
-    timeBuffer[seq] = time.time()
+    header_fn = paddingFilename(sendFileName).encode()
+    # if the packet is the last packet, flag is set to O
+    if seq == last_packet:
+        header_flag = "1"
+
+    else:
+        header_flag = "0"
+
+    # Send packet
+    senderSocket.sendto(header_flag.encode() + header_fn + header_pn + body, receiver)
+
+    # Store Transmission time
+    transmitted_time[seq] = time.time()
 
 # Calculate timeout 
 def calculateTimeout(sampleRTT):
