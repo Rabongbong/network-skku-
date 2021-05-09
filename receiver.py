@@ -13,7 +13,6 @@ def fileReceiver():
     
   logProc = logHandler()
 
-
   #########################
   #Write your Code here
   logProc.startLogging("testRecvLogFile.txt")
@@ -58,7 +57,7 @@ def fileReceiver():
 
     # Send cumulative ack
     receiverSocket.sendto(str(cumulativeACK).encode(), senderAddress)
-    fileReceiver.writeAck(fileReceiver.cumulative_ack)
+    logProc.writeAck(cumulativeACK, "sent")
 
     # If receiving is done
     if cumulativeACK == last_packet:
