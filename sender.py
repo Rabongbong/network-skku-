@@ -25,12 +25,6 @@ packetBuffer= {}
 
 ##############################
 
-# padding packet Filename
-def paddingFilename(s):
-    if len(s) > 49:
-        return
-    return s + '\0' * (49 - len(s))
-
 # Read data for each packet
 def fileRead(f, seq):
     f.seek(seq*1300)
@@ -70,26 +64,25 @@ def calTimeout(sampleRTT):
     return avgRTT + 4 * devRTT
 
 # Sender function
-def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
+def fileSender(srcFilename, dstFilename, lastPacket, windowSize, ds):
 
-    # Use global variable
+
     global sendFileName
-    # global window_size
     global dest
     global senderSocket
 
-    # File discriptor
-    f = open(srcFilename, 'rb')
+    readFile = open(srcFilename, 'rb')
     logProc = logHandler()
     logProc.startLogging("testSendLogFile.txt")
 
+    #########################
+    
+    #Write your Code here
+    
     sendFileName = (dstFilename + '\0' * (49 - len(dstFilename))).encode()
-    # sendFileName = paddingFilename(dstFilename).encode()
-    # window_size = windowSize
     availableWindow = windowSize
     dest = ds
     serialN = -1
-    lastNumber = last_packet
     checkduplicated = 0
 
     senderSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -102,10 +95,10 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     # 초기에 windowSize 만큼 패킷을 보낸다.
     while availableWindow > 0:
         packetNumber = serialN + 1 + windowSize - availableWindow
-        if packetNumber > lastNumber:
+        if packetNumber > lastPacket:
             break
 
-        sendPacket(f, packetNumber, lastNumber)
+        sendPacket(readFile, packetNumber, lastPacket)
         logProc.writePkt(packetNumber, 'sent')
         availableWindow -= 1
 
@@ -117,7 +110,7 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
         except socket.timeout:
 
             lt = round(timeBuffer[serialN+1] - start_time, 3)
-            sendPacket(f, serialN + 1, lastNumber)
+            sendPacket(f, serialN + 1, lastPacket)
             logProc.writePkt(serialN+1, "timeout since " + str(lt)  + " (timeout value " + str(round(timeOut, 3)) +")")
             logProc.writePkt(serialN+1, 'retransmitted')
             checkduplicated = 0
@@ -135,12 +128,12 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
                 # check duplicated key
                 checkduplicated = checkduplicated + 1
                 if checkduplicated == 2:
-                    sendPacket(f, serialN + 1, lastNumber)
+                    sendPacket(readFile, serialN + 1, lastPacket)
                     logProc.writePkt(serialN, '3 duplicated ACKs')
                     logProc.writePkt(serialN+1, 'retransmitted')
                     checkduplicated = 0
             
-            if ack == lastNumber:
+            if ack == lastPacket:
                 break
 
             elif ack > serialN:
@@ -154,16 +147,16 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
 
                 while availableWindow > 0:
                     packetNumber = serialN + 1 + windowSize - availableWindow
-                    if packetNumber > lastNumber:
+                    if packetNumber > lastPacket:
                         break
 
-                    sendPacket(f, packetNumber, lastNumber)
+                    sendPacket(readFile, packetNumber, lastPacket)
                     logProc.writePkt(packetNumber, 'sent')
                     availableWindow -= 1
 
             elif ack == serialN:
                 if checkduplicated == 3:
-                    sendPacket(f, serialN + 1, lastNumber)
+                    sendPacket(readFile, serialN + 1, lastPacket)
                     logProc.writePkt(serialN, '3 duplicated ACKs')
                     logProc.writePkt(serialN+1, 'retransmitted')
                     checkduplicated = 0
@@ -171,10 +164,10 @@ def fileSender(srcFilename, dstFilename, last_packet, windowSize, ds):
     senderSocket.close()
     endtime = time.time()
 
-    throughput = (lastNumber + 1) / (endtime - start_time)
+    throughput = (lastPacket + 1) / (endtime - start_time)
     logProc.writeEnd(throughput, avgRTT*1000)
 
-    f.close()
+    readFile.close()
 
 if __name__=='__main__':
 
@@ -182,13 +175,13 @@ if __name__=='__main__':
     windowSize = int(sys.argv[2])   #window size
     srcFilename = sys.argv[3]   #source file name
     dstFilename = sys.argv[4]   #result file name
-    
-    dest = (recvAddr, 10080)
-    
-    # calculate last_packet
-    last_packet = os.stat(srcFilename).st_size // 1300
+    serverPort = 10080
 
-    fileSender(srcFilename, dstFilename, last_packet, windowSize, dest)
+    dest = (recvAddr, serverPort)
+    # calculate lastPacket
+    lastPacket = os.stat(srcFilename).st_size // 1300
+
+    fileSender(srcFilename, dstFilename, lastPacket, windowSize, dest)
 
 
 
