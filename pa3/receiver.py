@@ -1,78 +1,77 @@
 import sys
 import socket
-from logHandler import logHandler
 import time
-
-
-#(header size:100(filename:49 + serialnumber:50 + flag:1) + body size:1300)
-def parsePacket(packet):
-  filename = packet[:49].decode().split('\0')[0]
-  serialNumber = packet[49:99].decode()
-  flag = packet[99:100].decode()
-  body = packet[100:]
-  return filename, serialNumber, flag, body
-
+from logHandler import logHandler
 
 def fileReceiver():
-  # print('receiver program starts...')
-  logProc = logHandler()
-  throughput = 0.0
-
-
-  #########################
+  #print('receiver program starts...')
   serverPort = 10080
   receiverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
   receiverSocket.bind(('', serverPort))
+  receiverSocket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 10000000)
+  dstFilename=""  
+    
+  logProc = logHandler()
 
-  start_time = time.time()
-  ACK=0                		#ACK
-  receivePacket={}           #receive packet
-  dstFilename=""          # destination filename
-
+  #########################
+  #Write your Code here
   logProc.startLogging("testRecvLogFile.txt")
+  receivePacket={}           #receive packet
+  cumulativeACK=-1           #ACK
+  lastPacket = None
+  start_time = time.time()
 
   while True:
-    message, senderAddress = receiverSocket.recvfrom(1400)
-    filename, serialNumber, flag, body = parsePacket(message)
-    print(filename)
-    print(serialNumber)
-    if not dstFilename:
-      dstFilename = filename
+    packet, senderAddress = receiverSocket.recvfrom(1400)
+
+    flag, file_name, packetNumber, body = packetParsing(packet)
+
+    if not dstFilename: 
+      dstFilename = file_name
       writefile = open(dstFilename, 'wb')
+        
+    logProc.writePkt(packetNumber, "received")
 
-    logProc.writePkt(serialNumber, "received")
+    # If receive packet is last packet
+    if flag == '1':
+      lastPacket = packetNumber
 
-    if serialNumber == ACK:
+
+    if packetNumber == cumulativeACK + 1:
+      cumulativeACK +=1
       writefile.write(body)
-      ACK+=1
 
       while True:
-
-        if ACK not in receivePacket.keys():
+        if cumulativeACK +1 not in receivePacket.keys():
           break
-        ACK +=1
-        writefile.write(receivePacket[ACK])
-        del receivePacket[ACK]
+        cumulativeACK+=1
+        writefile.write(receivePacket[cumulativeACK])
 
-    elif serialNumber > ACK:
-      receivePacket[serialNumber]=body
+        del receivePacket[cumulativeACK]
 
-    receiverSocket.sendto(str(ACK).encode(), senderAddress)
-    logProc.writeAck(serialNumber, "sent")
+    elif packetNumber > cumulativeACK + 1:
+      receivePacket[packetNumber]=body
 
+    receiverSocket.sendto(str(cumulativeACK).encode(), senderAddress)
+    logProc.writeAck(cumulativeACK, "sent")
 
-    # received last packet
-    if flag == '1': 
-      throughput = (ACK)/(time.time()-start_time)
+    # if receive last packet
+    if cumulativeACK == lastPacket:
+      throughput = (lastPacket+1)/(time.time()-start_time)
       logProc.writeEnd(throughput)
       break
   
   receiverSocket.close()
   writefile.close()
 
-
-    #Write your Code here
-    #########################
+#########################
+# Parsing packet data to flag, fileName, packetNumber, body
+def packetParsing(packet):
+    flag = packet[:1].decode()  
+    fileName = packet[1:50].decode().split('\0')[0]
+    packetNumber = int(packet[50:100].decode())
+    body = packet[100:]
+    return flag, fileName, packetNumber, body
 
 if __name__=='__main__':
-  fileReceiver()
+    fileReceiver()
