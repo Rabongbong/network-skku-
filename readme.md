@@ -7,3 +7,5 @@
 ## pa3
 - implement TCP using UDP
 
+## pa4
+- Solving NAT traversal problem
