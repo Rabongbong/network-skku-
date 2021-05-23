@@ -12,8 +12,13 @@ def client(serverIP, serverPort, clientID):
     """
     allClient={}
     dest = (serverIP, serverPort)
+    print(dest)
     clientSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    clientSocket.bind(('',clientPort))
     clientSocket.sendto(clientID.encode(), dest)
+
+    packet, senderAddress = clientSocket.recvfrom(100)
+    print(packet.decode())
     pass
 
 
