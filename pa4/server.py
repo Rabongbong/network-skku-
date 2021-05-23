@@ -11,7 +11,7 @@ def server():
     allClient={}
     serverSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     serverSocket.bind(('', serverPort))
-    packet, senderAddress = receiverSocket.recvfrom(100)
+    packet, senderAddress = serverSocket.recvfrom(100)
     print(packet.decode())
     print(senderAddress)
     pass
