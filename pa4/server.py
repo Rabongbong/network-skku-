@@ -131,7 +131,6 @@ def server():
     while True:
         packet, senderAddress = serverSocket.recvfrom(100)
         flag = packet.decode().split(":")[0]
-        print(packet.decode())
 
         if flag == "0":      # register new client
            register_client(packet, senderAddress)

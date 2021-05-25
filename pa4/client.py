@@ -47,6 +47,7 @@ def socket_programming():
             elif flag == "1":  # deregister client
                 name = packet.decode().split(":")[1]
                 del allClient[name]
+                del allLocalClient[name]
             elif flag == "2":
                 name = packet.decode().split(":")[1]
                 msg = packet.decode().split(":")[2]
@@ -71,7 +72,6 @@ def exitChat(clientID):
     clientSocket.sendto(("1:"+clientID).encode(), dest)
     Eflag=1
     exit()
-
 
 def chat(clientID, text):
     global clientSocket
